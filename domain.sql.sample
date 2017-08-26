@@ -1,0 +1,38 @@
+DO $$
+
+-- Reload PowerDNS zone data
+
+DECLARE
+  v_domain    text := 'dev.lan';          -- domain name
+  v_ip        text := '127.0.0.1';        -- base ip
+  v_ns        text := 'ns.dev.lan';       -- master DNS host
+  v_ns_admin  text := 'admin.ns.dev.lan'; -- master DNS admin email
+  v_domain_id integer;                    -- internal domain id
+  v_stamp     text;                       -- zone timestamp
+  v_key       text := '1';                -- zone serial suffix
+  v_soa       text;                       -- zone SOA
+
+BEGIN
+
+  SELECT INTO v_domain_id id FROM domains WHERE name = v_domain;
+  IF NOT FOUND THEN
+    INSERT INTO domains (name, type) VALUES
+      (v_domain, 'MASTER')
+      RETURNING id INTO v_domain_id
+    ;
+  END IF;
+
+  v_stamp := to_char(current_timestamp, 'YYYYMMDD') || v_key;
+  v_soa := concat_ws(' ', v_ns, v_ns_admin, v_stamp, '10800 3600 604800 1800');
+
+  DELETE FROM records WHERE domain_id = v_domain_id;
+  INSERT INTO records (domain_id, name, ttl, type, prio, content) VALUES 
+    (v_domain_id, v_domain, 60,  'SOA', 0, v_soa)
+  , (v_domain_id, v_domain, 1800, 'NS', 0, 'ns.' || v_domain)
+  , (v_domain_id, v_domain, 1800, 'MX', 5, 'mail.' || v_domain)
+  , (v_domain_id, v_domain, 1800,  'A', 0,  v_ip)
+  , (v_domain_id, v_domain, 1800,'TXT', 0, 'v=spf1 mx ~all')
+  , (v_domain_id, 'www.' || v_domain,  1800, 'A', 0, v_ip)
+  ;
+END;
+$$;
