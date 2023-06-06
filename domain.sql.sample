@@ -1,3 +1,37 @@
+
+CREATE OR REPLACE FUNCTION soa_upd(a_old TEXT) RETURNS TEXT AS $_$
+/*
+    принять SOA, проверить на "сегодня", если сегодня, то во вторую пару цифр сделать +1
+    если не сегодня, или null, то сегодня += 00
+    если SOA в принципе не по дате, к ней сделать +1
+*/
+DECLARE
+  v_soa TEXT;
+  v_id  INTEGER;
+BEGIN
+  v_soa := to_char(current_timestamp, 'YYYYMMDD');
+  IF a_old IS NULL OR a_old < v_soa || '00' THEN
+    -- SOA нет или меньше сегодняшнего
+    RETURN v_soa || '00';
+  END IF;
+  v_id := substr(a_old, length(v_soa) + 1)::INT + 1;
+  v_soa := substr(a_old, 1, length(v_soa)) || CASE WHEN v_id < 10 THEN '0' ELSE  '' END || v_id::TEXT;
+  RETURN v_soa;
+END
+$_$ LANGUAGE plpgsql;
+
+/*
+SELECT x, soa_upd(x) FROM unnest(ARRAY[
+  null
+, '2023060100'
+, '2023060600'
+, '2023060604'
+, '2023060624'
+, '2024060624'
+, '202406061100'
+]) x;
+*/
+
 DO $$
 
 -- Reload PowerDNS zone data
@@ -8,8 +42,8 @@ DECLARE
   v_ns        text := 'ns.dev.lan';       -- master DNS host
   v_ns_admin  text := 'admin.ns.dev.lan'; -- master DNS admin email
   v_domain_id integer;                    -- internal domain id
-  v_stamp     text;                       -- zone timestamp
-  v_key       text := '1';                -- zone serial suffix
+  v_stamp     text;                       -- zone SOA timestamp
+  v_stamp_old text;                       -- previous zone SOA timestamp
   v_soa       text;                       -- zone SOA
 
 BEGIN
@@ -17,12 +51,13 @@ BEGIN
   SELECT INTO v_domain_id id FROM domains WHERE name = v_domain;
   IF NOT FOUND THEN
     INSERT INTO domains (name, type) VALUES
-      (v_domain, 'MASTER')
+      (v_domain, 'NATIVE')
       RETURNING id INTO v_domain_id
     ;
   END IF;
 
-  v_stamp := to_char(current_timestamp, 'YYYYMMDD') || v_key;
+  SELECT INTO v_stamp_old split_part(content, ' ', 3) FROM records WHERE domain_id = v_domain_id AND type = 'SOA';
+  v_stamp := soa_upd(v_stamp_old);
   v_soa := concat_ws(' ', v_ns, v_ns_admin, v_stamp, '10800 3600 604800 1800');
 
   DELETE FROM records WHERE domain_id = v_domain_id;
