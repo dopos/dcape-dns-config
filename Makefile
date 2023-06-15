@@ -64,6 +64,9 @@ update-direct: $(CFG) $(OBJECTSDIRECT)
 
 # ------------------------------------------------------------------------------
 
+psql:
+	@docker exec -it $$PG_CONTAINER psql -U $$PGUSER $$PGDATABASE
+
 clean:
 	rm -rf *.done
 
