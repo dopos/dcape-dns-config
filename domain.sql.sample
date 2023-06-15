@@ -1,37 +1,3 @@
-
-CREATE OR REPLACE FUNCTION soa_upd(a_old TEXT) RETURNS TEXT AS $_$
-/*
-    принять SOA, проверить на "сегодня", если сегодня, то во вторую пару цифр сделать +1
-    если не сегодня, или null, то сегодня += 00
-    если SOA в принципе не по дате, к ней сделать +1
-*/
-DECLARE
-  v_soa TEXT;
-  v_id  INTEGER;
-BEGIN
-  v_soa := to_char(current_timestamp, 'YYYYMMDD');
-  IF a_old IS NULL OR a_old < v_soa || '00' THEN
-    -- SOA нет или меньше сегодняшнего
-    RETURN v_soa || '00';
-  END IF;
-  v_id := substr(a_old, length(v_soa) + 1)::INT + 1;
-  v_soa := substr(a_old, 1, length(v_soa)) || CASE WHEN v_id < 10 THEN '0' ELSE  '' END || v_id::TEXT;
-  RETURN v_soa;
-END
-$_$ LANGUAGE plpgsql;
-
-/*
-SELECT x, soa_upd(x) FROM unnest(ARRAY[
-  null
-, '2023060100'
-, '2023060600'
-, '2023060604'
-, '2023060624'
-, '2024060624'
-, '202406061100'
-]) x;
-*/
-
 DO $$
 
 -- Reload PowerDNS zone data
@@ -39,6 +5,7 @@ DO $$
 DECLARE
   v_domain    text := 'dev.lan';          -- domain name
   v_ip        text := '127.0.0.1';        -- base ip
+  v_ip1       text := '127.0.1.1';        -- some another ip
   v_ns        text := 'ns.dev.lan';       -- master DNS host
   v_ns_admin  text := 'admin.ns.dev.lan'; -- master DNS admin email
   v_domain_id integer;                    -- internal domain id
@@ -46,28 +13,43 @@ DECLARE
   v_stamp_old text;                       -- previous zone SOA timestamp
   v_soa       text;                       -- zone SOA
 
+/*
+  refresh -- time lag until the slave again asks the master for a current version of the zone file
+  retry   -- Should this request go unanswered, the “Retry” field regulates when a new attempt is to be carried out (< refresh)
+  expire  -- determines how long the zone file may still be used before the server refuses DNS information delivery
+  ttl     -- how long a client may hold the requested information in the cache before a new request must be sent
+
+  Each value in seconds
+*/
+
+  v_refresh int :=  10800;
+  v_retry   int :=   3600;
+  v_expire  int := 604800;
+  v_ttl     int :=   1800;
+
 BEGIN
+  v_domain_id := domain_id(v_domain);
 
-  SELECT INTO v_domain_id id FROM domains WHERE name = v_domain;
-  IF NOT FOUND THEN
-    INSERT INTO domains (name, type) VALUES
-      (v_domain, 'NATIVE')
-      RETURNING id INTO v_domain_id
-    ;
-  END IF;
-
+  -- calculate SOA with next serial
   SELECT INTO v_stamp_old split_part(content, ' ', 3) FROM records WHERE domain_id = v_domain_id AND type = 'SOA';
   v_stamp := soa_upd(v_stamp_old);
-  v_soa := concat_ws(' ', v_ns, v_ns_admin, v_stamp, '10800 3600 604800 1800');
+  v_soa := concat_ws(' ', v_ns, v_ns_admin, v_stamp, v_refresh, v_retry, v_expire, v_ttl);
 
+  -- clear zone
   DELETE FROM records WHERE domain_id = v_domain_id;
+
+  -- all zone records are following here
   INSERT INTO records (domain_id, name, ttl, type, prio, content) VALUES 
     (v_domain_id, v_domain, 60,  'SOA', 0, v_soa)
-  , (v_domain_id, v_domain, 1800, 'NS', 0, 'ns.' || v_domain)
-  , (v_domain_id, v_domain, 1800, 'MX', 5, 'mail.' || v_domain)
-  , (v_domain_id, v_domain, 1800,  'A', 0,  v_ip)
-  , (v_domain_id, v_domain, 1800,'TXT', 0, 'v=spf1 mx ~all')
-  , (v_domain_id, 'www.' || v_domain,  1800, 'A', 0, v_ip)
+  , (v_domain_id, v_domain, v_ttl, 'NS', 0, 'ns.' || v_domain)
+  , (v_domain_id, v_domain, v_ttl, 'MX', 5, 'mail.' || v_domain)
+  , (v_domain_id, v_domain, v_ttl,'TXT', 0, 'v=spf1 mx ~all')
+
+  , (v_domain_id,           v_domain, v_ttl, 'A', 0, v_ip)
+  , (v_domain_id, 'www.' || v_domain, v_ttl, 'A', 0, v_ip)
   ;
+  -- setup DNS-01 challenge for NS at v_ip1
+  CALL acme_insert(v_domain_id, 'front.' || v_domain, v_ip1, v_ttl);
+
 END;
 $$;
