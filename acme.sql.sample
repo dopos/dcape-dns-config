@@ -1,0 +1,60 @@
+/*
+  Zone setup for DNS-01 ACME challenge
+
+  This code executed once per domain.
+  Future changes makes traefik via PowerDNS API
+*/
+
+-- This var must be set in psql args
+SET vars.domain TO :'ACME_DOMAIN';
+
+DO $_$
+DECLARE
+  v_domain    text := 'acme-' || current_setting('vars.domain'); -- domain name
+  v_ns        text := 'ns.'   || current_setting('vars.domain'); -- master DNS host
+  v_ns_admin  text := 'admin.'|| current_setting('vars.domain'); -- master DNS admin email
+
+  v_refresh   int  :=  10800;
+  v_retry     int  :=   3600;
+  v_expire    int  := 604800;
+  v_ttl       int  :=   1800;
+
+  v_domain_id integer;  -- internal domain id
+  v_stamp     text;     -- zone timestamp
+  v_stamp_old text;     -- previous zone SOA timestamp
+  v_soa       text;     -- zone SOA
+
+BEGIN
+
+  IF v_domain = 'acme-' THEN
+    RAISE NOTICE 'ACME_DOMAIN is not set. Skipping acme zone setup';
+    RETURN;
+  END IF;
+
+  RAISE NOTICE 'Setup acme zone % for nameserver %',v_domain,v_ns;
+
+  SELECT INTO v_domain_id id FROM domains WHERE name = v_domain;
+  IF FOUND THEN
+    -- no any changes needed after creation
+    RAISE NOTICE 'Zone already exists. Skipping';
+    RETURN;
+  END IF;
+
+  INSERT INTO domains (name, type) VALUES
+    (v_domain, 'NATIVE')
+    RETURNING id INTO v_domain_id
+  ;
+
+  INSERT INTO domainmetadata(domain_id, kind, content) VALUES
+    (v_domain_id, 'SOA-EDIT-API', 'INCREASE')
+  ;
+
+  v_stamp := soa_upd();
+  v_soa := concat_ws(' ', v_ns, v_ns_admin, v_stamp, v_refresh, v_retry, v_expire, v_ttl);
+
+  INSERT INTO records (domain_id, name, ttl, type, prio, content) VALUES 
+    (v_domain_id, v_domain, 60,  'SOA', 0, v_soa)
+  , (v_domain_id, v_domain, 1800, 'NS', 0, v_ns)
+  ;
+END;
+$_$;

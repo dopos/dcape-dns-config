@@ -1,7 +1,8 @@
-DO $$
+/*
+  Complete PowerDNS zone records
+*/
 
--- Reload PowerDNS zone data
-
+DO $_$
 DECLARE
   v_domain    text := 'dev.lan';          -- domain name
   v_ip        text := '127.0.0.1';        -- base ip
@@ -13,6 +14,11 @@ DECLARE
   v_stamp_old text;                       -- previous zone SOA timestamp
   v_soa       text;                       -- zone SOA
 
+  v_refresh   int  :=  10800;
+  v_retry     int  :=   3600;
+  v_expire    int  := 604800;
+  v_ttl       int  :=   1800;
+
 /*
   refresh -- time lag until the slave again asks the master for a current version of the zone file
   retry   -- Should this request go unanswered, the “Retry” field regulates when a new attempt is to be carried out (< refresh)
@@ -21,11 +27,6 @@ DECLARE
 
   Each value in seconds
 */
-
-  v_refresh int :=  10800;
-  v_retry   int :=   3600;
-  v_expire  int := 604800;
-  v_ttl     int :=   1800;
 
 BEGIN
   v_domain_id := domain_id(v_domain);
@@ -52,4 +53,4 @@ BEGIN
   CALL acme_insert(v_domain_id, 'front.' || v_domain, v_ip1, v_ttl);
 
 END;
-$$;
+$_$;

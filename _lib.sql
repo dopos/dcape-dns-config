@@ -1,5 +1,10 @@
 /*
   Вспомогательные функции
+
+* FUNCTION soa_upd(a_old TEXT) RETURNS TEXT
+* FUNCTION domain_id(a_name TEXT, a_type TEXT DEFAULT 'NATIVE') RETURNS INTEGER
+* PROCEDURE acme_insert(a_domain_id INT, a_name TEXT, a_ip TEXT, a_ttl INT)
+
 */
 
 CREATE OR REPLACE FUNCTION soa_upd(a_old TEXT) RETURNS TEXT AS $_$
@@ -53,7 +58,7 @@ BEGIN
 END
 $_$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE PROCEDURE acme_insert(a_domain_id INT, a_name TEXT, a_ip TEXT, a_ttl INT) LANGUAGE plpgsql AS $_$
+CREATE OR REPLACE PROCEDURE acme_insert(a_domain_id INT, a_name TEXT, a_ip TEXT, a_ttl INT) AS $_$
 /*
   Добавление в зону для заданного a_ip записей для передачи ему контроля над зоной a_name.
   Это используется в DNS-01 challenge ACME
@@ -70,4 +75,4 @@ BEGIN
       FROM acme
   ;
 END;
-$_$;
+$_$ LANGUAGE plpgsql;
