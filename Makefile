@@ -26,6 +26,9 @@ PGPASSWORD   ?=
 #- ACME zone suffix
 ACME_DOMAIN  ?=
 
+#- This NS for use in SOA
+NSERVER      ?= 
+
 # ------------------------------------------------------------------------------
 
 all: help
