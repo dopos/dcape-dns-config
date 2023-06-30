@@ -2,17 +2,19 @@
   Complete PowerDNS zone records
 */
 
+SET vars.ns TO :'NSERVER';
+
 DO $_$
 DECLARE
-  v_domain    text := 'dev.lan';          -- domain name
-  v_ip        text := '127.0.0.1';        -- base ip
-  v_ip1       text := '127.0.1.1';        -- some another ip
-  v_ns        text := 'ns.dev.lan';       -- master DNS host
-  v_ns_admin  text := 'admin.ns.dev.lan'; -- master DNS admin email
-  v_domain_id integer;                    -- internal domain id
-  v_stamp     text;                       -- zone SOA timestamp
-  v_stamp_old text;                       -- previous zone SOA timestamp
-  v_soa       text;                       -- zone SOA
+  v_domain    text := 'dev.lan';                    -- domain name
+  v_ip        text := '127.0.0.1';                  -- base ip
+  v_ip1       text := '127.0.1.1';                  -- some another ip
+  v_ns        text := current_setting('vars.ns');   -- master DNS host
+  v_ns_admin  text := 'admin.ns.dev.lan';           -- master DNS admin email
+  v_domain_id integer;                              -- internal domain id
+  v_stamp     text;                                 -- zone SOA timestamp
+  v_stamp_old text;                                 -- previous zone SOA timestamp
+  v_soa       text;                                 -- zone SOA
 
   v_refresh   int  :=  10800;
   v_retry     int  :=   3600;

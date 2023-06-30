@@ -26,6 +26,9 @@ PGPASSWORD   ?=
 #- ACME zone suffix
 ACME_DOMAIN  ?=
 
+#- This NS for use in SOA
+NSERVER      ?= 
+
 # ------------------------------------------------------------------------------
 
 all: help
@@ -50,7 +53,7 @@ update: $(OBJECTS)
 %.done: %.sql
 	@echo "*** $< ***"
 	@csum=$$(md5sum $< | sed 's/ .*//') ; \
-	  cat $< | docker exec -i $$PG_CONTAINER psql -U $$PGUSER -d $$PGDATABASE -vcsum=$$csum -vACME_DOMAIN=$(ACME_DOMAIN) > $@
+	  cat $< | docker exec -i $$PG_CONTAINER psql -U $$PGUSER -d $$PGDATABASE -vcsum=$$csum -vACME_DOMAIN=$(ACME_DOMAIN) -vNSERVER=$(NSERVER) > $@
 
 ## Load updated zone files via psql connection
 update-direct: $(CFG) $(OBJECTSDIRECT)
