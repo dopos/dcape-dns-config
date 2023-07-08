@@ -16,19 +16,19 @@ DECLARE
   v_stamp_old text;                                 -- previous zone SOA timestamp
   v_soa       text;                                 -- zone SOA
 
-  v_refresh   int  :=  10800;
-  v_retry     int  :=   3600;
-  v_expire    int  := 604800;
-  v_ttl       int  :=   1800;
+  v_refresh   int  :=  10800; -- 3 hours
+  v_retry     int  :=   3600; -- 1 hour
+  v_expire    int  := 604800; -- 7 days
+  v_ttl       int  :=   1800; -- 30 min
 
-/*
-  refresh -- time lag until the slave again asks the master for a current version of the zone file
-  retry   -- Should this request go unanswered, the “Retry” field regulates when a new attempt is to be carried out (< refresh)
-  expire  -- determines how long the zone file may still be used before the server refuses DNS information delivery
-  ttl     -- how long a client may hold the requested information in the cache before a new request must be sent
+  /*
+    refresh -- time lag until the slave again asks the master for a current version of the zone file
+    retry   -- Should this request go unanswered, the “Retry” field regulates when a new attempt is to be carried out (< refresh)
+    expire  -- determines how long the zone file may still be used before the server refuses DNS information delivery
+    ttl     -- how long a client may hold the requested information in the cache before a new request must be sent
 
-  Each value in seconds
-*/
+    Each value in seconds
+  */
 
 BEGIN
   v_domain_id := domain_id(v_domain);
@@ -43,7 +43,7 @@ BEGIN
 
   -- all zone records are following here
   INSERT INTO records (domain_id, name, ttl, type, prio, content) VALUES 
-    (v_domain_id, v_domain, 60,  'SOA', 0, v_soa)
+    (v_domain_id, v_domain,    60,'SOA', 0, v_soa)
   , (v_domain_id, v_domain, v_ttl, 'NS', 0, 'ns.' || v_domain)
   , (v_domain_id, v_domain, v_ttl, 'MX', 5, 'mail.' || v_domain)
   , (v_domain_id, v_domain, v_ttl,'TXT', 0, 'v=spf1 mx ~all')
