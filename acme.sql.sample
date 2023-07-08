@@ -8,11 +8,14 @@
 -- This var must be set in psql args
 SET vars.domain TO :'ACME_DOMAIN';
 
+-- This zone copy hostname
+SET vars.ns   TO :'NSERVER';
+
 DO $_$
 DECLARE
   v_domain    text := 'acme-' || current_setting('vars.domain'); -- domain name
-  v_ns        text := 'ns.'   || current_setting('vars.domain'); -- master DNS host
   v_ns_admin  text := 'admin.'|| current_setting('vars.domain'); -- master DNS admin email
+  v_ns        text := current_setting('vars.ns');                -- master DNS host
 
   v_refresh   int  :=  10800;
   v_retry     int  :=   3600;
@@ -20,8 +23,6 @@ DECLARE
   v_ttl       int  :=   1800;
 
   v_domain_id integer;  -- internal domain id
-  v_stamp     text;     -- zone timestamp
-  v_stamp_old text;     -- previous zone SOA timestamp
   v_soa       text;     -- zone SOA
 
 BEGIN
@@ -31,12 +32,12 @@ BEGIN
     RETURN;
   END IF;
 
-  RAISE NOTICE 'Setup acme zone % for nameserver %',v_domain,v_ns;
+  RAISE NOTICE 'Setup acme zone % for nameserver %', v_domain, v_ns;
 
   SELECT INTO v_domain_id id FROM domains WHERE name = v_domain;
   IF FOUND THEN
     -- no any changes needed after creation
-    RAISE NOTICE 'Zone already exists. Skipping';
+    RAISE NOTICE 'Zone % already exists. Skipping', v_domain;
     RETURN;
   END IF;
 

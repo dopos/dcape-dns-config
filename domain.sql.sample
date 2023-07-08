@@ -2,51 +2,40 @@
   Complete PowerDNS zone records
 */
 
-SET vars.ns TO :'NSERVER';
+-- This file control sum
+SET vars.csum TO :'csum';
+-- This zone copy hostname
+SET vars.ns   TO :'NSERVER';
 
 DO $_$
 DECLARE
-  v_domain    text := 'dev.lan';                    -- domain name
-  v_ip        text := '127.0.0.1';                  -- base ip
-  v_ip1       text := '127.0.1.1';                  -- some another ip
-  v_ns        text := current_setting('vars.ns');   -- master DNS host
-  v_ns_admin  text := 'admin.ns.dev.lan';           -- master DNS admin email
-  v_domain_id integer;                              -- internal domain id
-  v_stamp     text;                                 -- zone SOA timestamp
-  v_stamp_old text;                                 -- previous zone SOA timestamp
-  v_soa       text;                                 -- zone SOA
-
-  v_refresh   int  :=  10800; -- 3 hours
-  v_retry     int  :=   3600; -- 1 hour
-  v_expire    int  := 604800; -- 7 days
-  v_ttl       int  :=   1800; -- 30 min
-
-  /*
-    refresh -- time lag until the slave again asks the master for a current version of the zone file
-    retry   -- Should this request go unanswered, the “Retry” field regulates when a new attempt is to be carried out (< refresh)
-    expire  -- determines how long the zone file may still be used before the server refuses DNS information delivery
-    ttl     -- how long a client may hold the requested information in the cache before a new request must be sent
-
-    Each value in seconds
-  */
-
+  v_domain    text := 'dev.lan';          -- domain name
+  v_ns_admin  text := 'admin.ns.dev.lan'; -- master DNS admin email
+  v_ip        text := '127.0.0.1';        -- base ip
+  v_ip1       text := '127.0.1.1';        -- some another ip
+  v_ttl       INTEGER := 60;              -- 1 min
+  v_domain_id integer;                    -- internal domain id
+  v_soa       text;                       -- zone SOA
 BEGIN
   v_domain_id := domain_id(v_domain);
 
-  -- calculate SOA with next serial
-  SELECT INTO v_stamp_old split_part(content, ' ', 3) FROM records WHERE domain_id = v_domain_id AND type = 'SOA';
-  v_stamp := soa_upd(v_stamp_old);
-  v_soa := concat_ws(' ', v_ns, v_ns_admin, v_stamp, v_refresh, v_retry, v_expire, v_ttl);
+  -- check csum, do not run twice
+  IF csum_exists(v_domain_id) THEN
+    RAISE NOTICE 'Domain % does not changed. Skipping', v_domain;
+    RETURN;
+  END IF;
 
   -- clear zone
   DELETE FROM records WHERE domain_id = v_domain_id;
 
+  v_soa := soa_mk(v_domain_id, v_ns_admin);
+
   -- all zone records are following here
-  INSERT INTO records (domain_id, name, ttl, type, prio, content) VALUES 
-    (v_domain_id, v_domain,    60,'SOA', 0, v_soa)
-  , (v_domain_id, v_domain, v_ttl, 'NS', 0, 'ns.' || v_domain)
-  , (v_domain_id, v_domain, v_ttl, 'MX', 5, 'mail.' || v_domain)
-  , (v_domain_id, v_domain, v_ttl,'TXT', 0, 'v=spf1 mx ~all')
+  INSERT INTO records (domain_id, name, ttl, type, prio, content) VALUES
+    (v_domain_id, v_domain, v_ttl, 'SOA', 0, v_soa)
+  , (v_domain_id, v_domain, v_ttl, 'NS',  0, 'ns.' || v_domain)
+  , (v_domain_id, v_domain, v_ttl, 'MX',  5, 'mail.' || v_domain)
+  , (v_domain_id, v_domain, v_ttl, 'TXT', 0, '"v=spf1 mx ~all"')
 
   , (v_domain_id,           v_domain, v_ttl, 'A', 0, v_ip)
   , (v_domain_id, 'www.' || v_domain, v_ttl, 'A', 0, v_ip)
