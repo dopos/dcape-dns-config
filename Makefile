@@ -26,8 +26,8 @@ PGPASSWORD   ?=
 #- ACME zone suffix
 ACME_DOMAIN  ?=
 
-#- This NS for use in SOA
-NSERVER      ?= 
+#- This NS hostname for use in all SOA
+NSERVER      ?=
 
 # ------------------------------------------------------------------------------
 
@@ -97,7 +97,7 @@ config: $(CFG).sample
 
 ## Remove .done files
 clean:
-	rm -rf *.done
+	rm -rf $(OBJECTS)
 
 # This code handles group header and target comment with one or two lines only
 ## list Makefile targets
