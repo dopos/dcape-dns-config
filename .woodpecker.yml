@@ -1,0 +1,18 @@
+variables:
+    - &dcape_img 'dcape-compose'
+
+clone:
+  git:
+    image: drone/git
+    settings:
+      lfs: false
+      tags: false
+
+pipeline:
+  deploy:
+    image: *dcape_img
+    commands:
+      - make .config-link
+      - make update
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

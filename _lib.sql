@@ -41,7 +41,7 @@ SELECT x, soa_upd(x) FROM unnest(ARRAY[
 */
 
 -- result was changed to bigint
-DROP FUNCTION IF EXISTS domain_id(text,text);
+-- DROP FUNCTION IF EXISTS domain_id(text,text);
 
 CREATE OR REPLACE FUNCTION domain_id(a_name TEXT, a_type TEXT DEFAULT 'NATIVE') RETURNS BIGINT AS $_$
 /*
