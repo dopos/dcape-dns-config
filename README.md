@@ -5,7 +5,10 @@ This project contains Makefile and sample sql zone definition for loading zones 
 
 ## Requirements
 
-* [dcape](https://github.com/TenderPro/dcape) installed on remote host with pdns and gitea running
+* linux 64bit (git, make, wget, gawk, openssl)
+* [docker](http://docker.io)
+* [dcape](https://github.com/dopos/dcape)
+* Git service ([github](https://github.com), [gitea](https://gitea.io) or [gogs](https://gogs.io))
 
 ## Usage
 
