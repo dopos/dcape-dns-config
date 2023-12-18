@@ -1,14 +1,19 @@
+
+# lint this file
+# go install github.com/woodpecker-ci/woodpecker/cmd/cli@latest
+# cli lint .woodpecker.yml
+
 variables:
     - &dcape_img 'dcape-compose'
 
 clone:
   git:
-    image: drone/git
+    image: woodpeckerci/plugin-git
     settings:
       lfs: false
       tags: false
 
-pipeline:
+steps:
   deploy:
     image: *dcape_img
     commands:
