@@ -68,10 +68,10 @@ CREATE OR REPLACE PROCEDURE acme_insert(a_domain_id BIGINT, a_name TEXT, a_ip TE
 */
 BEGIN
   WITH acme(name, type, content) AS (VALUES
-    (                      a_name, 'A',     a_ip)
-  , ('*.'               || a_name, 'A',     a_ip)
-  , ('acme-'            || a_name, 'NS',    'ns.'   || a_name)
-  , ('_acme-challenge.' || a_name, 'CNAME', 'acme-' || a_name)
+    (                      a_name, 'A',     a_ip)               -- зону резолвим в a_ip
+  , ('*.'               || a_name, 'A',     a_ip)               -- wildcard зоны резолвим в a_ip
+  , ('acme-'            || a_name, 'NS',    'ns.'   || a_name)  -- создаем специальную зону для DNS-01, её резолвит NS сервер, доступный по a_ip
+  , ('_acme-challenge.' || a_name, 'CNAME', 'acme-' || a_name)  -- делегируем DNS-01 зоны a_name в специальную зону
   )
   INSERT INTO records (domain_id, name, ttl, type, prio, content)
     SELECT a_domain_id, name, a_ttl, type, 0, content
