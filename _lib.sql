@@ -64,7 +64,10 @@ $_$ LANGUAGE plpgsql;
 CREATE OR REPLACE PROCEDURE acme_insert(a_domain_id BIGINT, a_name TEXT, a_ip TEXT, a_ttl INT) AS $_$
 /*
   Добавление в зону для заданного a_ip записей для передачи ему контроля над зоной a_name.
-  Это используется в DNS-01 challenge ACME
+  Это используется в DNS-01 ACME challenge в конфигурации, когда на отдельный a_ip выносятся
+  * все сервисы домена (их имена - a_name и *.a_name)
+  * DNS сервис для обновления сертификатов (ns.a_name)
+  В этом случае traefik при обновлении сертификатов будет прописывать в спец. зоне ключи через API (power)dns сервера.
 */
 BEGIN
   WITH acme(name, type, content) AS (VALUES
