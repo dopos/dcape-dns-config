@@ -16,17 +16,18 @@ SET search_path = :LOCAL_PGUSER;
 
 -- локальная часть зоны, ID используют ту же последовательность
 CREATE TABLE IF NOT EXISTS records_local (LIKE public.records INCLUDING DEFAULTS INCLUDING INDEXES INCLUDING CONSTRAINTS);
+GRANT SELECT ON TABLE records_local TO :LOCAL_PGUSER;
 
 -- записи из локальной части зоны имеют приоритет
 CREATE OR REPLACE VIEW records AS
-SELECT DISTINCT ON (domain_id, name, type)
-  id, domain_id, name, type, content, ttl, prio, disabled, ordername, auth
-FROM (
-    SELECT 1 as rn,* FROM records_local
-  UNION
-    SELECT 2 as rn,* FROM public.records
-) rec
-ORDER BY domain_id, name, type,rn
+  SELECT DISTINCT ON (domain_id, name, type)
+    id, domain_id, name, type, content, ttl, prio, disabled, ordername, auth
+  FROM (
+      SELECT 1 as rn,* FROM records_local
+    UNION
+      SELECT 2 as rn,* FROM public.records
+  ) rec
+  ORDER BY domain_id, name, type,rn
 ;
 
 -- разрешить основному пользователю менять records_local

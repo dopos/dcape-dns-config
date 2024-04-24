@@ -16,7 +16,7 @@ DECLARE
   v_domain    text := 'dev.test';          -- domain name
   v_ns_admin  text := 'admin.ns.dev.test'; -- master DNS admin email
   v_ip        text := '127.0.0.1';         -- base ip
-  v_ip1       text := '127.0.1.1';         -- some another ip
+  v_ip1       text := '127.0.1.2';         -- some another ip
   v_ttl       INTEGER := 60;               -- 1 min
   v_domain_id integer;                     -- internal domain id
   v_soa       text;                        -- zone SOA
@@ -45,15 +45,15 @@ BEGIN
   , (v_domain_id, 'www.' || v_domain, v_ttl, 'A', 0, v_ip)
   ;
   -- setup DNS-01 challenge for NS at v_ip1
-  CALL acme_insert(v_domain_id, 'front.' || v_domain, v_ip1, v_ttl);
+  CALL acme_insert(v_domain_id, 'front.' || v_domain, v_ip, v_ttl);
 
-/*
+
   -- ** local zone records **
   DELETE FROM records_local WHERE domain_id = v_domain_id;
   INSERT INTO records_local (domain_id, name, ttl, type, prio, content) VALUES
-    (v_domain_id,  'ns.' || v_domain, 10, 'A', 0, '127.0.0.1') -- локальная версия
-  , (v_domain_id, 'loc.' || v_domain, 10, 'A', 0, '127.0.0.2') -- локальная запись
+    (v_domain_id, 'www.' || v_domain, 10, 'A', 0, v_ip1) -- локальная версия
+  , (v_domain_id, 'loc.' || v_domain, 10, 'A', 0, v_ip1) -- локальная запись
   ;
-*/
+
 END;
 $_$;
