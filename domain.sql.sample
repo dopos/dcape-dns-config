@@ -47,13 +47,14 @@ BEGIN
   -- setup DNS-01 challenge for NS at v_ip1
   CALL acme_insert(v_domain_id, 'front.' || v_domain, v_ip, v_ttl);
 
-
+/*
+  -- Uncomment after `make local-init`
   -- ** local zone records **
   DELETE FROM records_local WHERE domain_id = v_domain_id;
   INSERT INTO records_local (domain_id, name, ttl, type, prio, content) VALUES
     (v_domain_id, 'www.' || v_domain, 10, 'A', 0, v_ip1) -- локальная версия
   , (v_domain_id, 'loc.' || v_domain, 10, 'A', 0, v_ip1) -- локальная запись
   ;
-
+*/
 END;
 $_$;
