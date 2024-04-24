@@ -13,12 +13,12 @@ OBJECTSDIRECT = $(SOURCES:.sql=.direct)
 # comments prefixed with '#- ' will be copied to $(CFG).sample
 
 #- ACME zone suffix
-ACME_DOMAIN     ?=
+ACME_DOMAIN     ?= dev.test
 
 #- This NS hostname for use in all SOA
-NSERVER         ?=
+NSERVER         ?= ns.test
 
-#- db container
+#- db container (autofilled)
 DB_CONTAINER    ?= #
 
 #- PowerDNS DB user name
@@ -27,12 +27,23 @@ PGUSER          ?= pdns
 #- PowerDNS DB name
 PGDATABASE      ?= pdns
 
-#- Used ONLY for direct DB access without docker (update-direct)
-PGPASSWORD      ?=
-#- Used ONLY for direct DB access without docker (update-direct)
+#- direct DB access without docker (update-direct)
+PGPASSWORD      ?= $(shell openssl rand -hex 16; echo)
+
+#- Used for direct DB access without docker (update-direct)
 DB_PORT_LOCAL   ?=
 
 USE_DCAPE_DC    := no
+
+# Local DNS config
+
+#- Schema and user name
+LOCAL_PGUSER     ?= pdnslocal
+#- Password
+LOCAL_PGPASSWORD ?= $(shell openssl rand -hex 16; echo)
+
+# script for local-init
+LOCAL_INIT_SQL   ?= local_init.psql
 
 # ------------------------------------------------------------------------------
 -include $(CFG)
@@ -71,7 +82,8 @@ update: $(OBJECTS)
 %.done: %.sql
 	@echo "*** $< ***"
 	@csum=$$(md5sum $< | sed 's/ .*//') ; \
-	  cat $< | docker exec -i $$DB_CONTAINER psql -U $$PGUSER -d $$PGDATABASE -vcsum=$$csum -vACME_DOMAIN=$(ACME_DOMAIN) -vNSERVER=$(NSERVER) > $@
+	  cat $< | docker exec -i $$DB_CONTAINER psql -U $$PGUSER -d $$PGDATABASE \
+	     -vcsum=$$csum -vACME_DOMAIN=$(ACME_DOMAIN) -vNSERVER=$(NSERVER) -vLOCAL_PGUSER=$$LOCAL_PGUSER > $@
 
 ## Load updated zone files via psql connection
 update-direct: $(CFG) $(OBJECTSDIRECT)
@@ -79,6 +91,17 @@ update-direct: $(CFG) $(OBJECTSDIRECT)
 %.direct: %.sql
 	@echo "*** $< ***"
 	@source $(CFG) && cat $< | PGPASSWORD=$${PGPASSWORD:?Must be set} psql -h localhost -U $$PGUSER -p $${DB_PORT_LOCAL:?Must be set} > $@
+
+# ------------------------------------------------------------------------------
+
+local-init:
+	@echo "Create user $$LOCAL_PGUSER for db $$PGDATABASE via $$DB_CONTAINER..." ; \
+	sql="CREATE USER \"$$LOCAL_PGUSER\" WITH PASSWORD '$$LOCAL_PGPASSWORD'" ; \
+	docker exec -i $$DB_CONTAINER psql -U postgres -c "$$sql" 2>&1 > .psql.log | grep -v "already exists" > /dev/null || true ; \
+	cat .psql.log ; \
+	cat $(LOCAL_INIT_SQL) | docker exec -i $$DB_CONTAINER psql -U $(DB_ADMIN_USER) -d $$PGDATABASE \
+	  -vPGUSER=$$PGUSER -vLOCAL_PGUSER=$$LOCAL_PGUSER ; \
+	cat .psql.log ; rm .psql.log
 
 # ------------------------------------------------------------------------------
 

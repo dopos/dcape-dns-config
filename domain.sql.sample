@@ -3,24 +3,28 @@
 */
 
 -- This file control sum
-SET vars.csum TO :'csum';
+SET SESSION vars.csum TO :'csum';
 -- This zone copy hostname
-SET vars.ns   TO :'NSERVER';
+SET SESSION vars.ns   TO :'NSERVER';
+-- Local zone user
+SET SESSION vars.lzone TO :'LOCAL_PGUSER';
+-- allow search in local zone schema
+SET search_path = public, :LOCAL_PGUSER;
 
 DO $_$
 DECLARE
-  v_domain    text := 'dev.lan';          -- domain name
-  v_ns_admin  text := 'admin.ns.dev.lan'; -- master DNS admin email
-  v_ip        text := '127.0.0.1';        -- base ip
-  v_ip1       text := '127.0.1.1';        -- some another ip
-  v_ttl       INTEGER := 60;              -- 1 min
-  v_domain_id integer;                    -- internal domain id
-  v_soa       text;                       -- zone SOA
+  v_domain    text := 'dev.test';          -- domain name
+  v_ns_admin  text := 'admin.ns.dev.test'; -- master DNS admin email
+  v_ip        text := '127.0.0.1';         -- base ip
+  v_ip1       text := '127.0.1.1';         -- some another ip
+  v_ttl       INTEGER := 60;               -- 1 min
+  v_domain_id integer;                     -- internal domain id
+  v_soa       text;                        -- zone SOA
 BEGIN
   v_domain_id := domain_id(v_domain);
 
   -- check csum, do not run twice
-  IF csum_exists(v_domain_id) THEN
+  IF csum_exists(v_domain_id, current_setting('vars.csum')) THEN
     RAISE NOTICE 'Domain % does not changed. Skipping', v_domain;
     RETURN;
   END IF;
@@ -28,7 +32,7 @@ BEGIN
   -- clear zone
   DELETE FROM records WHERE domain_id = v_domain_id;
 
-  v_soa := soa_mk(v_domain_id, v_ns_admin);
+  v_soa := soa_mk(v_domain_id, current_setting('vars.ns'), v_ns_admin);
 
   -- all zone records are following here
   INSERT INTO records (domain_id, name, ttl, type, prio, content) VALUES
@@ -43,5 +47,13 @@ BEGIN
   -- setup DNS-01 challenge for NS at v_ip1
   CALL acme_insert(v_domain_id, 'front.' || v_domain, v_ip1, v_ttl);
 
+/*
+  -- ** local zone records **
+  DELETE FROM records_local WHERE domain_id = v_domain_id;
+  INSERT INTO records_local (domain_id, name, ttl, type, prio, content) VALUES
+    (v_domain_id,  'ns.' || v_domain, 10, 'A', 0, '127.0.0.1') -- локальная версия
+  , (v_domain_id, 'loc.' || v_domain, 10, 'A', 0, '127.0.0.2') -- локальная запись
+  ;
+*/
 END;
 $_$;

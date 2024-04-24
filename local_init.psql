@@ -1,0 +1,34 @@
+/*
+  Инициализация локальной зоны.
+  Скрипт запускается командой `make local-init`
+  См. также: README.local.md
+
+*/
+-- дать права на схему pdns
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO :LOCAL_PGUSER;
+GRANT USAGE ON SEQUENCE public.records_id_seq TO :LOCAL_PGUSER;
+
+-- схема по умолчанию для этого юзера
+CREATE SCHEMA IF NOT EXISTS :LOCAL_PGUSER AUTHORIZATION :LOCAL_PGUSER;
+
+-- далее все объекты будут созданы в этой схеме
+SET search_path = :LOCAL_PGUSER;
+
+-- локальная часть зоны, ID используют ту же последовательность
+CREATE TABLE IF NOT EXISTS records_local (LIKE public.records INCLUDING DEFAULTS INCLUDING INDEXES INCLUDING CONSTRAINTS);
+
+-- записи из локальной части зоны имеют приоритет
+CREATE OR REPLACE VIEW records AS
+SELECT DISTINCT ON (domain_id, name, type)
+  id, domain_id, name, type, content, ttl, prio, disabled, ordername, auth
+FROM (
+    SELECT 1 as rn,* FROM records_local
+  UNION
+    SELECT 2 as rn,* FROM public.records
+) rec
+ORDER BY domain_id, name, type,rn
+;
+
+-- разрешить основному пользователю менять records_local
+GRANT USAGE ON SCHEMA :LOCAL_PGUSER TO :PGUSER;
+GRANT ALL ON TABLE records_local TO :PGUSER;
