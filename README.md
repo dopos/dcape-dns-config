@@ -1,4 +1,5 @@
 # dcape-dns-config
+
 Config for dcape based powerdns server
 
 This project contains Makefile and sample sql zone definition for loading zones into PowerDNS server.
@@ -23,3 +24,9 @@ This project contains Makefile and sample sql zone definition for loading zones 
 ## TODO
 
 * [ ] Zone rectification SQL
+
+## License
+
+The MIT License (MIT), see [LICENSE](LICENSE).
+
+Copyright (c) 2017-2024 Aleksei Kovrizhkin <lekovr+dopos@gmail.com>
